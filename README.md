@@ -1,5 +1,7 @@
 # LLM-playground
 
+![_239dc35c-edeb-41a8-9042-d8dd9971ef74](https://github.com/nuoma/LLM-playground/assets/9259412/a9de8665-bd8e-4bca-bb5c-e4324c213ef7)
+
 随便玩玩LLM相关的预处理。站在了很多之前巨人的肩膀上，向他们表示感谢！
 
 # Step 0 data collection
