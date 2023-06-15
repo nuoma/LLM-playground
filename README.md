@@ -1,6 +1,6 @@
 # LLM-playground
 
-随便玩玩LLM相关的预处理
+随便玩玩LLM相关的预处理。站在了很多之前巨人的肩膀上，向他们表示感谢！
 
 # Step 0 data collection
 
@@ -10,13 +10,20 @@
 
 使用了若干OCR工具，包括WPS，[福昕](www.pdf365.cn)，Paddle等。发现如果一整本(500页的样子)喂进去会导致无法辨认，会直接把页面截图返回给我。所以先用福昕去水印，然后将范围缩减到正文开始，去掉前后的封面目录等信息。得到docx文件，此时也包括了图片等。
 
-# Step 2 processing
+# Step 2 pre-processing
 
-这一步将word文件清洗后另存为txt格式（utf-8）。
+这一步将word文件清洗后另存为txt格式（utf-8）。使用step2.py。
 
-Prompt: help me write python code to solve this problem. Within a folder I have 100 docx files. I would like to transform these files into txt in another folder called txt. When processing also do text cleaning, specifically remove unnecessary format, change line, bulletins, tables, pictures, white spaces etc.. Then all sentences that ends with "。" should change a new line. Separately, save the same lines of sentences into a single JSON file, with format like ["line1","line2","line3"], should change line after each line. Note all text are in chinese and contain complex chemical terms. This is a chemistry term dictionary, but the format screwd up during OCR. Sample word file has a name{化工辞典第5版 [欧阳平凯著，王延儒著，姚虎卿，管国锋 编] 2014年_36-45.docx}, sample text in this file looks like{a•氨基戊二酸见谷氨酸（317页）。 a-氨基戊二酸一钠见谷氨酸（一） （318 页）。 1-氨基戊烷见戊胺（964页）。 氨基纤维素amino cellulose 纤维素用 液氨、甲胺或乙胺等处理后的纤维素加合 物。当除去氨或胺之后得再生纤维素。纤维 素经胺处理后，由于结晶形态和结晶度的降 低，其反应性和性能大大改善，例如棉、麻 在0°C用乙胺处理后再将乙胺除去.其强度 保持不变，但伸缩度和弹性显著增大。该处 理过程又称乙胺消晶。 2-氨基-4-硝基苯酚见邻氨基对硝基苯酚 （579 页）。 2-氨基-5-硝基苯酚 2-amino-5-nitrophenol （）H 黄棕色针状晶体。熔程 / 207〜208°C。溶于乙 O，N —NH,醇。用于制造金属络合 染料和活性黑等。可由 对硝基苯胺经重氮.化后转变成三氮化合物， 再经水解而制得。}
+```
+python step2.py --input_folder D:/Desktop/注册安全工程师/处理过程 --output_folder D:/Desktop/注册安全工程师/处理过程 --max_chars 500
+```
+This code does following:
+- Removes headers and footers from DOCX files
+- Cleans text by removing unnecessary characters, spaces, and Chinese punctuation marks
+- Combines sentences to create lines with a specified maximum number of characters (default: 500)
+- Saves cleaned text to TXT files and a JSON file
 
-注意这里是按句子分行的，但是有的句子特别短，参考医学教科书，有两种切分形式。所以这里我们限制使多个句子合并成一个，每行的字数控制在200字的样子。我同意这里可以下很多功夫。
+注意这里是按句子分行的，但是有的句子特别短，参考医学教科书，有两种切分形式，且教科书的结果很干净，所以并不需要像webcrawl的内容一样的清洗策略。所以这里我们限制使多个句子合并成一个，每行的字数控制在200字的样子。当然了这里还有很多工作可以做。
 
 原始文件355页18M，得到txt，6844行35万字。样例数据：
 
@@ -31,8 +38,36 @@ Prompt: help me write python code to solve this problem. Within a folder I have 
 </ul>
 
 
-这个数据有三个用处，用来预训练，用来生成SFT，用来算embedding进行检索。
+这个数据有三个用处，用来预训练，用来生成SFT，用来算embedding进行检索。过程参考了5月25号笔记的测试。
+OCR后的文字有1.化工教材_wpsocr 47万字。2.技术教材_wpsocr 30万字。3.法规教材_wpsocr 62万字。4.管理教材_wpsocr 32万字。最终形成的lines.json一共160万字。
 
 # Step 3 生成SFT
 
-目的是根据给定的语料去生成若干问题，参考了xx。
+这部分的目的是生成与领域相关的SFT对.
+
+## Book based QA generation
+目的是根据给定的语料去生成若干问题，参考了上海交大中文医疗对话语言模型的生成方式 (https://github.com/MediaBrain-SJTU/MedicalGPT-zh)。通过提供教科书文本，先让ChatGPT生成与该段教科书知识内容相关的若干问题，再通过“文本段-问题”对的方式让ChatGPT回答问题，从而能够生成knowledge grounded instructions。
+
+使用时请注意，将代码中的'YOUR_API_KEY'替换为您实际的OpenAI API密钥。如果您有多个密钥，请将它们添加到代码中的api_keys列表中以加快数据生成速度。将书籍材料放入JSON文件中，参考文件见`原材料.json`。输入输出的文件地址写死了。
+
+生成的问答对将保存在book_based_qa.json文件中。作为参考，max_worker=6，12小时2000条。
+
+
+## GPT based QA generation
+
+参考了BELLE 1.5M SFT生成方式(https://github.com/LianjiaTech/BELLE/tree/main/data/1.5M)。生成格式是：
+
+```json
+instruction: 指令
+input: 输入
+output: 输出
+```
+
+但是我们认为这个方法生成出的结果，虽然能够保证快速大量和diverse的输出，但是不够深入，所以这个方法没有沿用。使用的是`gpt-3.5-turbo`模型，命令：
+
+```bash
+# install requirements
+python generate_instruction.py generate_instruction_following_data --api=chat --model_name=gpt-3.5-turbo --num_instructions_to_generate 10000
+```
+
+我们给出了一个样例输出文件`化工sft-小.json`。
