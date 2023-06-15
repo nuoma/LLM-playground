@@ -1,9 +1,6 @@
 # Created by nuo on 20230614, with help from GPT3.5z
 # This code generate questions based on a given book material, then generate answers using GPT3.5
 # reference from https://github.com/MediaBrain-SJTU/MedicalGPT-zh
-# this key is purcahse on 20230605 Fri, black key with 120USD allowance expire in 1 month. This kind 3000RPM, compare to 20RPM free trial accounts.
-#卡号：账号: o6yg9qjbke@mailni.biz密码: RZSKUET17007邮箱密码: RZSKUET17007 API: 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
-
 
 import os
 import json
@@ -18,7 +15,7 @@ from progress.bar import Bar
 lock = Lock()
 
 # Configuration
-openai.api_key = "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"
+openai.api_key = ""
 bookdatapath = "./SafetyEngineer4Books.json" #3323行，160万字，注册中级安全工程师化工方向共4本教科书。
 output_filepath = "./SafetyEngineer4Books_generated_qa.json"
 openai.proxy = "http://127.0.0.1:7890" # request thru VPN
@@ -26,7 +23,7 @@ openai.proxy = "http://127.0.0.1:7890" # request thru VPN
 
 # Azure OpenAI API Configuration
 # openai.api_type = "azure"
-# openai.api_base = "https://initial.openai.azure.com/"
+# openai.api_base = ""
 # openai.api_version = "2023-03-15-preview"
 # openai.proxy = "http://127.0.0.1:7890"
 
