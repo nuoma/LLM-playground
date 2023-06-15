@@ -25,9 +25,9 @@ This code does following:
 - Combines sentences to create lines with a specified maximum number of characters (default: 500)
 - Saves cleaned text to TXT files and a JSON file
 
-注意这里是按句子分行的，但是有的句子特别短，参考医学教科书，有两种切分形式，且教科书的结果很干净，所以并不需要像webcrawl的内容一样的清洗策略。所以这里我们限制使多个句子合并成一个，每行的字数控制在200字的样子。当然了这里还有很多工作可以做。
+注意这里是按句子分行的，但是有的句子特别短，参考医学教科书，有两种切分形式，且教科书的结果很干净，所以并不需要像webcrawl的内容一样的清洗策略。所以这里我们限制使多个句子合并成一个，每行的字数控制在200字的样子。当然了这里还有很多工作可以做。过程参考了5月25号笔记的测试。
 
-原始文件355页18M，得到txt，6844行35万字。样例数据：
+原始文件355页18M，得到txt，6844行35万字。OCR后的文字有1.化工教材_wpsocr 47万字。2.技术教材_wpsocr 30万字。3.法规教材_wpsocr 62万字。4.管理教材_wpsocr 32万字。最终形成的lines.json一共160万字。样例数据：
 
 <ul>
 第一章机械安全技术
@@ -40,15 +40,15 @@ This code does following:
 </ul>
 
 
-这个数据有三个用处，用来预训练，用来生成SFT，用来算embedding进行检索。过程参考了5月25号笔记的测试。
-OCR后的文字有1.化工教材_wpsocr 47万字。2.技术教材_wpsocr 30万字。3.法规教材_wpsocr 62万字。4.管理教材_wpsocr 32万字。最终形成的lines.json一共160万字。
+这个数据有三个用处，用来预训练，用来生成SFT，用来算embedding进行检索。
+
 
 # Step 3 生成SFT
 
 这部分的目的是生成与领域相关的SFT对.
 
 ## Book based QA generation
-目的是根据给定的语料去生成若干问题，参考了上海交大中文医疗对话语言模型的生成方式 (https://github.com/MediaBrain-SJTU/MedicalGPT-zh)。通过提供教科书文本，先让ChatGPT生成与该段教科书知识内容相关的若干问题，再通过“文本段-问题”对的方式让ChatGPT回答问题，从而能够生成knowledge grounded instructions。
+目的是根据给定的语料去生成若干问题，通过提供教科书文本，先让ChatGPT生成与该段教科书知识内容相关的若干问题，再通过“文本段-问题”对的方式让ChatGPT回答问题，从而能够生成knowledge grounded instructions。参考了上海交大中文医疗对话语言模型的生成方式 (https://github.com/MediaBrain-SJTU/MedicalGPT-zh)
 
 使用时请注意，将代码中的'YOUR_API_KEY'替换为您实际的OpenAI API密钥。如果您有多个密钥，请将它们添加到代码中的api_keys列表中以加快数据生成速度。将书籍材料放入JSON文件中，参考文件见`原材料.json`。输入输出的文件地址写死了。
 
@@ -65,7 +65,9 @@ input: 输入
 output: 输出
 ```
 
-但是我们认为这个方法生成出的结果，虽然能够保证快速大量和diverse的输出，但是不够深入，所以这个方法没有沿用。使用的是`gpt-3.5-turbo`模型，命令：
+但是我们认为这个方法生成出的结果，虽然能够保证快速大量和diverse的输出，但是不够深入，所以**这个方法没有采用**。
+
+使用的是`gpt-3.5-turbo`模型，命令：
 
 ```bash
 # install requirements
@@ -73,3 +75,9 @@ python generate_instruction.py generate_instruction_following_data --api=chat --
 ```
 
 我们给出了一个样例输出文件`化工sft-小.json`。
+
+# Step 4
+
+# Step 5
+
+# Step 6
