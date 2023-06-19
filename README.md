@@ -1,18 +1,28 @@
-# LLM-playground
+# ChuizhiGPT
 
 ![_239dc35c-edeb-41a8-9042-d8dd9971ef74](https://github.com/nuoma/LLM-playground/assets/9259412/a9de8665-bd8e-4bca-bb5c-e4324c213ef7)
 
 随便玩玩LLM相关的预处理。站在了很多之前巨人的肩膀上，向他们表示感谢！
 
-# Step 0 data collection
+pip requirements was created using `pipreqs --encoding=utf-8 .` which may not be accurate
 
-略，各种方法去找需要的电子书PDF。
+# Step 0. Data Collection AKA Awesome（住嘴
 
-# Step 1 OCR tricks
+略，各种方法去找需要的电子书PDF。找了各种贩卖专业电子书的途径，定向搜寻的电子书，甚至买书然后tb寄书扫描。以下十几个我觉得泰裤辣的dataset：
 
-使用了若干OCR工具，包括WPS，[福昕](www.pdf365.cn)，Paddle等。发现如果一整本(500页的样子)喂进去会导致无法辨认，会直接把页面截图返回给我。所以先用福昕去水印，然后将范围缩减到正文开始，去掉前后的封面目录等信息。得到docx文件，此时也包括了图片等。
+[政务向文档](抖音笔尖耕耘)，
+[MNBVC在hf上的分类](https://huggingface.co/datasets/liwu/MNBVC/viewer/gov_report/train?row=0)，
+[Massive Never-ending BT Vast Chinese corpus超大规模中文语料集](https://mnbvc.253874.net/)，
+[医疗电子书](https://github.com/jind11/MedQA/tree/master)，
+[中国法律数据](https://github.com/pengxiao-song/awesome-chinese-legal-resources)
 
-# Step 2 pre-processing
+# Step 1. OCR Tricks
+
+测试了若干工具，包括：WPS，[福昕](www.pdf365.cn)，PaddleOCR，科大讯飞OCR，[SmallPDF](https://smallpdf.com/cn/unlock-pdf)等。氪金吧。发现如果一整本(500页的样子)喂进去会导致无法辨认，会直接把页面截图返回给我。所以先用福昕去水印(关键)，然后将范围缩减到正文开始，去掉前后的封面目录等信息。得到docx文件，此时也包括了图片等，整体质量可以接受。如果大于100M无法处理的就用WPS每隔200页成一个独立文档。如果文档加密就用[这个](https://smallpdf.com/cn/unlock-pdf) 。
+
+
+
+# Step 2. Pre-Processing
 
 这一步将word文件清洗后另存为txt格式（utf-8）。使用step2.py。
 
@@ -25,49 +35,26 @@ This code does following:
 - Combines sentences to create lines with a specified maximum number of characters (default: 500)
 - Saves cleaned text to TXT files and a JSON file
 
-注意这里是按句子分行的，但是有的句子特别短，参考医学教科书，有两种切分形式，且教科书的结果很干净，所以并不需要像webcrawl的内容一样的清洗策略。所以这里我们限制使多个句子合并成一个，每行的字数控制在200字的样子。当然了这里还有很多工作可以做。过程参考了5月25号笔记的测试。
+注意这里是按句子分行的，但是有的句子特别短，参考医学教科书，有两种切分形式，且教科书的结果很干净，所以并不需要像web crawl的内容一样的清洗策略。所以这里我们限制使多个句子合并成一个，每行的字数控制在200字的样子。当然了这里还有很多工作可以做。过程参考了5月25号笔记的测试。
 
-原始文件355页18M，得到txt，6844行35万字。OCR后的文字有1.化工教材_wpsocr 47万字。2.技术教材_wpsocr 30万字。3.法规教材_wpsocr 62万字。4.管理教材_wpsocr 32万字。最终形成的lines.json一共160万字。样例数据：
-
-<ul>
-第一章机械安全技术
-第一节机械安全基础知识
-　　　机械设备无处不在、无时不用，是人类进行生产经营活动不可或缺的重要工具。现代 机械科技含量高，是机、电、光、液等多种技术集成的复杂系统。机械在减轻劳动强度给 人们带来高效、方便的同时，也带来了不安全因素。任何机械在进行生产或服务活动时都 伴随着安全风险，机械安全问题越来越受到人们的重视。
-一、	机械基本概念
-　　　机械是由若干个零、部件连接构成，其中至少有一个零、部件是可运动的，并且配备 或预定配备动力系统，是具有特定应用目的的组合。机械包括：
-　　　(1)单台的机械。例如，木材加工机械、金属切削机床、起重机等。
-　　　(2)实现完整功能的机
-</ul>
+用来测试的教科书原始文件355页18M，得到txt，6844行35万字。OCR后的文字有：1.化工教材_wpsocr 47万字。2.技术教材_wpsocr 30万字。3.法规教材_wpsocr 62万字。4.管理教材_wpsocr 32万字。四个文件合并处理后一共160万字，我们提供一个最终文件的样例`lines.json`。
 
 
-这个数据有三个用处，用来预训练，用来生成SFT，用来算embedding进行检索。
+我这里的处理方法还有待商榷，尤其是对于标点符号和断句的处理。这个数据有三个用处：
+1. 预训练
+2. 生成SFT
+3. 算embedding进行检索。
 
 
-# Step 3 生成SFT
 
-这部分的目的是生成与领域相关的SFT对.
 
-## Book based QA generation
-目的是根据给定的语料去生成若干问题，通过提供教科书文本，先让ChatGPT生成与该段教科书知识内容相关的若干问题，再通过“文本段-问题”对的方式让ChatGPT回答问题，从而能够生成knowledge grounded instructions。参考了上海交大中文医疗对话语言模型的生成方式 (https://github.com/MediaBrain-SJTU/MedicalGPT-zh)
+# Step 3. Domain SFT Generation
 
-使用时请注意，将代码中的'YOUR_API_KEY'替换为您实际的OpenAI API密钥。如果您有多个密钥，请将它们添加到代码中的api_keys列表中以加快数据生成速度。将书籍材料放入JSON文件中，参考文件见`原材料.json`。输入输出的文件地址写死了。
-
-生成的问答对将保存在book_based_qa.json文件中。作为参考，max_worker=6，12小时2000条。
-
+这部分的目的是生成与领域相关的SFT对。
 
 ## GPT based QA generation
 
-参考了BELLE 1.5M SFT生成方式(https://github.com/LianjiaTech/BELLE/tree/main/data/1.5M)。生成格式是：
-
-```json
-instruction: 指令
-input: 输入
-output: 输出
-```
-
-但是我们认为这个方法生成出的结果，虽然能够保证快速大量和diverse的输出，但是不够深入，所以**这个方法没有采用**。
-
-使用的是`gpt-3.5-turbo`模型，命令：
+参考了BELLE 1.5M SFT生成方式(https://github.com/LianjiaTech/BELLE/tree/main/data/1.5M)。但是我们认为这个方法生成出的结果，虽然能够保证快速大量和diverse的输出，但是不够深入，所以**这个方法没有采用**。使用的是`gpt-3.5-turbo`模型，命令：
 
 ```bash
 # install requirements
@@ -76,8 +63,33 @@ python generate_instruction.py generate_instruction_following_data --api=chat --
 
 我们给出了一个样例输出文件`化工sft-小.json`。
 
-# Step 4
+## Book based QA generation
+目的是根据给定的语料去生成若干问题，通过提供教科书文本，先让ChatGPT生成与该段教科书知识内容相关的若干问题，再通过“文本段-问题”对的方式让ChatGPT回答问题，从而能够生成knowledge grounded instructions。参考了上海交大中文医疗对话语言模型[MedicalGPT-zh](https://github.com/MediaBrain-SJTU/MedicalGPT-zh)
+的生成方式。
 
-# Step 5
+使用时请注意，将代码中的'YOUR_API_KEY'替换为您实际的OpenAI API密钥。如果您有多个密钥，请将它们添加到代码中的api_keys列表中以加快数据生成速度。将书籍材料放入JSON文件中，参考文件见`原材料.json`。输入输出的文件地址写死了。生成的问答对将保存在book_based_qa.json文件中。作为参考，max_worker=6，12小时2000条，花费18刀。如果传github切记把自己的key删掉，否则很快就会被github扫出来，然后你的key就被封了要重新生成，别问我怎么知道的。
 
-# Step 6
+生成的若干json文件可以使用json2csv.py变成csv格式，这样方便于适配不同种类的instruction format.
+
+# Step 4 ContinuePreTrain(CPT) 
+
+这里需要考虑的事情太多了，不多bb先动手，训练方法参考了[ymcui](https://github.com/ymcui/Chinese-LLaMA-Alpaca/wiki)，基座模型采用了[ziya](https://huggingface.co/IDEA-CCNL/Ziya-LLaMA-13B-v1)。到底应该在基座模型上动手还是在sft过的，我母鸡啊。
+
+## 小
+### 小小
+
+# Step 5 SFT
+
+## Data considerations
+
+首先是
+
+另一部分是领域相关的。作为测试，我们目前为止一共有，使用了专业词典保证广度，使用了专业考试保证专业度。
+
+训练的顺序
+
+关于instruction的格式
+
+## Training considerations
+
+
